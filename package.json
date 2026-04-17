@@ -1,0 +1,12 @@
+{
+  "name": "mi-proyecto",
+  "version": "1.0.0",
+  "description": "Full-stack React + Express",
+  "scripts": {
+    "dev:client": "cd client && npm run dev",
+    "dev:server": "cd server && npm run dev",
+    "dev": "Start-Process powershell -ArgumentList '-NoExit', '-Command', 'cd client; npm run dev' ; Start-Process powershell -ArgumentList '-NoExit', '-Command', 'cd server; npm run dev'",
+    "install:all": "cd client && npm install && cd ../server && npm install"
+  },
+  "private": true
+}
