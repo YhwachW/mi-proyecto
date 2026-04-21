@@ -1,13 +1,506 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>client</title>
+    <title>OmniAnalytics — ERP Cloud</title>
+    <meta name="description" content="Plataforma SaaS gerencial con inteligencia predictiva para el mercado chileno." />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   </head>
   <body>
-    <div id="app"></div>
+
+    <!-- ═══ LOGIN SCREEN ═══ -->
+    <div id="login-screen" class="login-wrapper">
+      <div class="login-ambient"></div>
+      <div class="login-card">
+        <div class="login-brand">
+          <div class="login-logo-icon">
+            <i class="fas fa-chart-network"></i>
+          </div>
+          <h1>OmniAnalytics</h1>
+          <p>Chile Cloud ERP Platform</p>
+        </div>
+
+        <div id="login-error" class="login-error-msg" style="display:none">
+          <i class="fas fa-exclamation-circle"></i> Credenciales Inválidas
+        </div>
+
+        <div class="input-group">
+          <label for="login-email">Correo Corporativo</label>
+          <div class="input-wrapper">
+            <i class="fas fa-envelope input-icon"></i>
+            <input type="email" id="login-email" placeholder="admin@empresa.cl" value="boti@admin.cl" autocomplete="off" />
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label for="login-pass">Contraseña</label>
+          <div class="input-wrapper">
+            <i class="fas fa-lock input-icon"></i>
+            <input type="password" id="login-pass" placeholder="••••••••" value="123" />
+          </div>
+        </div>
+
+        <button id="btn-login" class="btn-primary">
+          <span>Acceder al Panel</span>
+          <i class="fas fa-arrow-right"></i>
+        </button>
+
+        <button id="btn-admin-login" class="btn-admin-login-link">
+          <i class="fas fa-shield-halved"></i> Acceso Administrador SaaS
+        </button>
+
+        <div class="login-hint">
+          <span>Cuentas demo:</span>
+          <code>boti@admin.cl</code> · <code>supermercado@admin.cl</code> · <code>restaurante@admin.cl</code>
+          <br><code>Clave: 123</code>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ ERP DASHBOARD ═══ -->
+    <div class="erp-container hidden" id="erp-app">
+
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-top">
+          <div class="logo">
+            <div class="logo-icon"><i class="fas fa-chart-line"></i></div>
+            <div>
+              <h2>OmniAnalytics</h2>
+              <span>Cloud ERP</span>
+            </div>
+          </div>
+
+          <div class="sidebar-section-label">NAVEGACIÓN</div>
+          <nav class="menu" id="sidebar-menu">
+            <!-- Dynamic menu injected via TS -->
+          </nav>
+        </div>
+
+        <div class="sidebar-bottom">
+          <div class="sidebar-company-card" id="sidebar-company-card">
+            <div class="company-avatar" id="company-avatar">–</div>
+            <div class="company-info">
+              <span id="company-name-sidebar" class="company-name">–</span>
+              <span class="company-role">Administrador</span>
+            </div>
+          </div>
+          <button id="btn-logout" class="btn-logout">
+            <i class="fas fa-right-from-bracket"></i> Cerrar Sesión
+          </button>
+        </div>
+      </aside>
+
+      <!-- Main Content -->
+      <main class="main-content">
+        <!-- Suspension Overlay (shown when account is in grace/expired state) -->
+        <div id="suspension-overlay" class="suspension-overlay hidden">
+          <div class="suspension-card">
+            <div class="suspension-icon">⚠️</div>
+            <h2 class="suspension-title">Servicio Suspendido</h2>
+            <p class="suspension-sub">
+              Tu suscripción venció el <strong id="suspension-expiry-date">—</strong>.<br>
+              Tu cuenta se eliminará en <strong id="suspension-days-remaining">—</strong> días.
+            </p>
+            <button id="btn-suspension-pay" class="btn-suspension-pay">
+              <i class="fas fa-credit-card"></i> Renovar Ahora — $14.990 CLP
+            </button>
+          </div>
+        </div>
+
+        <div id="erp-content">
+
+        <!-- Topbar (shared across views) -->
+        <header class="topbar">
+          <div class="topbar-left">
+            <h1 id="module-title">Panel Ejecutivo</h1>
+            <span id="module-subtitle" class="module-subtitle">Resumen anual de operaciones</span>
+          </div>
+          <div class="topbar-right">
+            <span id="tenant-name" class="tenant-badge"></span>
+            <div class="live-pill">
+              <span class="live-dot"></span>
+              <span>En Vivo</span>
+            </div>
+          </div>
+        </header>
+
+        <!-- ═══ DASHBOARD VIEW ═══ -->
+        <div id="dashboard-view">
+          <!-- KPI Row -->
+          <section class="kpis">
+            <div class="kpi-card card">
+              <div class="kpi-icon kpi-icon-blue"><i class="fas fa-dollar-sign"></i></div>
+              <div class="kpi-body">
+                <span class="kpi-label">Facturación Total</span>
+                <p id="kpi-revenue" class="kpi-value">—</p>
+                <span class="kpi-delta positive"><i class="fas fa-arrow-trend-up"></i> Anual acumulado</span>
+              </div>
+            </div>
+            <div class="kpi-card card">
+              <div class="kpi-icon kpi-icon-purple"><i class="fas fa-receipt"></i></div>
+              <div class="kpi-body">
+                <span class="kpi-label">Transacciones</span>
+                <p id="kpi-tx" class="kpi-value">—</p>
+                <span class="kpi-delta neutral"><i class="fas fa-calendar"></i> Total del período</span>
+              </div>
+            </div>
+            <div class="kpi-card card">
+              <div class="kpi-icon kpi-icon-amber"><i class="fas fa-star"></i></div>
+              <div class="kpi-body">
+                <span class="kpi-label">Ticket Prom. Festivos</span>
+                <p id="kpi-avg-holiday" class="kpi-value">—</p>
+                <span class="kpi-delta positive"><i class="fas fa-fire"></i> Alta demanda</span>
+              </div>
+            </div>
+            <div class="kpi-card card">
+              <div class="kpi-icon kpi-icon-green"><i class="fas fa-store"></i></div>
+              <div class="kpi-body">
+                <span class="kpi-label">Ticket Prom. Laboral</span>
+                <p id="kpi-avg-weekday" class="kpi-value">—</p>
+                <span class="kpi-delta neutral"><i class="fas fa-chart-bar"></i> Día normal</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- Charts -->
+          <section class="charts-grid">
+            <div class="card chart-card" id="card-donut">
+              <div class="chart-card-header">
+                <div><h3>Mix de Ingresos</h3><p class="chart-subtitle">Distribución por tipo de jornada</p></div>
+                <span class="chart-tag">Composición</span>
+              </div>
+              <div class="chart-donut-wrapper">
+                <canvas id="dayTypeChart"></canvas>
+                <div class="donut-legend" id="donut-legend"></div>
+              </div>
+            </div>
+            <div class="card chart-card" id="card-bar">
+              <div class="chart-card-header">
+                <div><h3>Top 10 Productos &mdash; Volumen</h3><p class="chart-subtitle">Unidades vendidas en el período</p></div>
+                <span class="chart-tag">Ranking</span>
+              </div>
+              <canvas id="topProductsChart"></canvas>
+            </div>
+          </section>
+
+          <!-- Calendar -->
+          <section class="calendar-section card">
+            <div class="calendar-header">
+              <div><h3>Calendario Predictivo de Demanda</h3><p class="chart-subtitle">Clic en un día para ver el pronóstico de materiales</p></div>
+              <div class="calendar-controls-wrap">
+                <div class="calendar-controls">
+                  <button id="prev-month"><i class="fas fa-chevron-left"></i></button>
+                  <span id="current-month-label">—</span>
+                  <button id="next-month"><i class="fas fa-chevron-right"></i></button>
+                </div>
+                <div class="calendar-legend">
+                  <span class="legend-item"><span class="dot low"></span> Bajo</span>
+                  <span class="legend-item"><span class="dot mod"></span> Moderado</span>
+                  <span class="legend-item"><span class="dot high"></span> Alto / Pico</span>
+                </div>
+              </div>
+            </div>
+            <div class="calendar-grid" id="executive-grid">
+              <div class="cal-head">Lun</div><div class="cal-head">Mar</div><div class="cal-head">Mié</div>
+              <div class="cal-head">Jue</div><div class="cal-head">Vie</div><div class="cal-head">Sáb</div>
+              <div class="cal-head">Dom</div>
+            </div>
+          </section>
+
+          <!-- Restock Table -->
+          <section class="restock-section card">
+            <div class="table-header">
+              <div><h3><i class="fas fa-boxes-stacked"></i> Sugerencias de Reposición</h3><p class="chart-subtitle">Generado por IA en base al historial de 12 meses</p></div>
+              <span class="badge badge-pulse"><i class="fas fa-brain"></i> IA Activa</span>
+            </div>
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr><th>Producto</th><th>Bodega Actual</th><th>Demanda Mensual</th><th>Sugerido Comprar</th><th>Cobertura</th><th>Estado</th></tr>
+                </thead>
+                <tbody id="restock-table-body">
+                  <tr><td colspan="6" class="table-loading">Cargando datos...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+        <!-- ═══ END DASHBOARD VIEW ═══ -->
+
+        <!-- ═══ PRODUCTS VIEW ═══ -->
+        <div id="products-view" style="display:none">
+
+          <!-- Scanner Input -->
+          <section class="card scanner-section">
+            <div class="scanner-header">
+              <div>
+                <h3><i class="fas fa-barcode"></i> Escáner de Código de Barras</h3>
+                <p class="chart-subtitle">Enfoca este campo y escanea, o escribe el código y presiona Enter</p>
+              </div>
+              <div id="scan-feedback" class="scan-feedback" style="display:none"></div>
+            </div>
+            <div class="scanner-input-wrap">
+              <i class="fas fa-barcode scanner-icon"></i>
+              <input id="barcode-input" class="scanner-input" type="text"
+                placeholder="Escanea aquí o ingresa el código de barras…" autocomplete="off" />
+            </div>
+          </section>
+
+          <!-- Two-column layout -->
+          <div class="products-grid">
+
+            <!-- Cart / Lote de ingreso -->
+            <section class="card cart-section">
+              <div class="table-header">
+                <div>
+                  <h3><i class="fas fa-boxes-stacked"></i> Lote de Ingreso</h3>
+                  <p class="chart-subtitle" id="cart-total">El lote está vacío</p>
+                </div>
+                <button id="btn-confirm-entry" class="btn-confirm" disabled>
+                  <i class="fas fa-check"></i> Confirmar Ingreso de Stock
+                </button>
+              </div>
+              <div class="table-container">
+                <table>
+                  <thead>
+                    <tr><th>Código</th><th>Producto</th><th>Cantidad</th><th></th></tr>
+                  </thead>
+                  <tbody id="cart-body">
+                    <tr><td colspan="4" class="table-loading">El lote está vacío</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <!-- Product Catalog -->
+            <section class="card catalog-section">
+              <div class="table-header">
+                <div>
+                  <h3><i class="fas fa-list"></i> Catálogo de Productos</h3>
+                  <p class="chart-subtitle">Doble clic o presiona Agregar para añadir al lote</p>
+                </div>
+              </div>
+              <div class="catalog-search-wrap">
+                <i class="fas fa-magnifying-glass"></i>
+                <input id="product-search" type="text" placeholder="Buscar por nombre de producto…" />
+              </div>
+              <div class="table-container catalog-table-wrap">
+                <table>
+                  <thead>
+                    <tr><th>Código</th><th>Producto</th><th>Categoría</th><th>Stock</th><th>Acción</th></tr>
+                  </thead>
+                  <tbody id="catalog-body">
+                    <tr><td colspan="5" class="table-loading">Cargando catálogo…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+          </div>
+        </div>
+        <!-- ═══ END PRODUCTS VIEW ═══ -->
+
+        <!-- ═══ SII VIEW ═══ -->
+        <!-- (already in file) -->
+
+        <!-- ═══ SUBSCRIPTION VIEW ═══ -->
+        <div id="subscription-view" style="display:none"></div>
+
+        </div><!-- end #erp-content -->
+        <div id="sii-view" style="display:none">
+
+          <!-- Controls -->
+          <section class="card sii-controls-card">
+            <div class="sii-controls-header">
+              <div>
+                <h3><i class="fas fa-file-invoice"></i> Informes Tributarios SII</h3>
+                <p class="chart-subtitle">Libro de Ventas mensual con cálculo de IVA (19%) listo para imprimir</p>
+              </div>
+              <div class="sii-actions">
+                <button id="btn-print-sii" class="btn-print" style="display:none">
+                  <i class="fas fa-print"></i> Imprimir / Exportar PDF
+                </button>
+              </div>
+            </div>
+            <div class="sii-filters">
+              <label class="sii-label">Período:</label>
+              <select id="sii-month" class="sii-select">
+                <option value="1">Enero</option>
+                <option value="2">Febrero</option>
+                <option value="3">Marzo</option>
+                <option value="4">Abril</option>
+                <option value="5">Mayo</option>
+                <option value="6">Junio</option>
+                <option value="7">Julio</option>
+                <option value="8">Agosto</option>
+                <option value="9">Septiembre</option>
+                <option value="10">Octubre</option>
+                <option value="11">Noviembre</option>
+                <option value="12">Diciembre</option>
+              </select>
+              <select id="sii-year" class="sii-select"></select>
+              <button id="btn-generate-sii" class="btn-confirm">
+                <i class="fas fa-file-invoice"></i> Generar Libro de Ventas
+              </button>
+            </div>
+          </section>
+
+          <!-- Preview area -->
+          <div id="sii-preview" style="display:none"></div>
+
+        </div>
+        <!-- ═══ END SII VIEW ═══ -->
+
+      </main>
+
+    </div>
+
+    <!-- ═══ FORECAST MODAL ═══ -->
+    <div id="forecast-modal" class="modal-overlay hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <h3 id="modal-title">Pronóstico del Día</h3>
+            <p id="modal-subtitle" class="chart-subtitle">—</p>
+          </div>
+          <button id="close-modal" class="btn-close"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="table-container modal-table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Bodega</th>
+                <th>Consumo Esperado</th>
+                <th>A Pedir</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="modal-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ ADMIN PANEL ═══ -->
+    <div id="admin-panel" class="hidden admin-wrapper">
+
+      <!-- Admin sidebar -->
+      <aside class="admin-sidebar">
+        <div class="admin-sidebar-top">
+          <div class="admin-logo">
+            <div class="admin-logo-icon"><i class="fas fa-shield-halved"></i></div>
+            <div>
+              <h2>OmniAnalytics</h2>
+              <span class="admin-badge-role">Super Admin</span>
+            </div>
+          </div>
+          <div class="admin-nav">
+            <button class="admin-nav-btn active"><i class="fas fa-gauge-high"></i> Dashboard</button>
+            <button class="admin-nav-btn"><i class="fas fa-buildings"></i> Cuentas</button>
+            <button class="admin-nav-btn"><i class="fas fa-clock-rotate-left"></i> Auditoría</button>
+          </div>
+        </div>
+        <div class="admin-sidebar-bottom">
+          <div class="admin-user-card">
+            <div class="admin-avatar"><i class="fas fa-user-shield"></i></div>
+            <div><span id="admin-name-display">Admin</span><br><small>Super Administrador</small></div>
+          </div>
+          <button id="btn-admin-logout" class="btn-logout">
+            <i class="fas fa-right-from-bracket"></i> Cerrar Sesión
+          </button>
+        </div>
+      </aside>
+
+      <!-- Admin main -->
+      <main class="admin-main">
+        <header class="admin-topbar">
+          <div>
+            <h1>Panel de Administración SaaS</h1>
+            <p class="chart-subtitle">Gestión de cuentas, suscripciones e ingresos</p>
+          </div>
+          <button class="btn-refresh-admin" onclick="location.reload()">
+            <i class="fas fa-rotate-right"></i> Actualizar
+          </button>
+        </header>
+
+        <!-- KPI Row -->
+        <div class="admin-kpis">
+          <div class="admin-kpi-card">
+            <div class="admin-kpi-icon" style="background:var(--purple-g);color:var(--purple)"><i class="fas fa-buildings"></i></div>
+            <div><div class="admin-kpi-value" id="admin-kpi-total">—</div><div class="admin-kpi-label">Total Cuentas</div></div>
+          </div>
+          <div class="admin-kpi-card">
+            <div class="admin-kpi-icon" style="background:var(--green-g);color:var(--green)"><i class="fas fa-circle-check"></i></div>
+            <div><div class="admin-kpi-value" id="admin-kpi-active">—</div><div class="admin-kpi-label">Cuentas Activas</div></div>
+          </div>
+          <div class="admin-kpi-card admin-kpi-highlight">
+            <div class="admin-kpi-icon" style="background:rgba(109,40,217,0.2);color:#a78bfa"><i class="fas fa-sack-dollar"></i></div>
+            <div><div class="admin-kpi-value" id="admin-kpi-mrr">—</div><div class="admin-kpi-label">MRR Mensual</div></div>
+          </div>
+          <div class="admin-kpi-card">
+            <div class="admin-kpi-icon" style="background:var(--amber-g);color:var(--amber)"><i class="fas fa-triangle-exclamation"></i></div>
+            <div><div class="admin-kpi-value" id="admin-kpi-grace">—</div><div class="admin-kpi-label">En Período de Gracia</div></div>
+          </div>
+          <div class="admin-kpi-card">
+            <div class="admin-kpi-icon" style="background:var(--red-g);color:var(--red)"><i class="fas fa-hourglass-end"></i></div>
+            <div><div class="admin-kpi-value" id="admin-kpi-risk">—</div><div class="admin-kpi-label">Vencen en 7 días</div></div>
+          </div>
+        </div>
+
+        <!-- Revenue Chart -->
+        <section class="card admin-chart-card">
+          <div class="table-header">
+            <div><h3><i class="fas fa-chart-bar"></i> Ingresos Recurrentes Mensuales (MRR)</h3>
+              <p class="chart-subtitle">Evolución de ingresos por suscripciones — Plan Pro $14.990</p></div>
+          </div>
+          <canvas id="admin-revenue-chart" height="80"></canvas>
+        </section>
+
+        <!-- Accounts Table -->
+        <section class="card">
+          <div class="table-header">
+            <div><h3><i class="fas fa-table-list"></i> Gestión de Cuentas</h3>
+              <p class="chart-subtitle">Suspende, reactiva o extiende suscripciones de empresas</p></div>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Empresa</th><th>RUT</th><th>Plan</th><th>Vencimiento</th>
+                  <th>Tiempo</th><th>Estado</th><th>Precio</th><th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="admin-accounts-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Audit Log -->
+        <section class="card">
+          <div class="table-header">
+            <div><h3><i class="fas fa-clock-rotate-left"></i> Registro de Auditoría</h3>
+              <p class="chart-subtitle">Últimas 50 acciones del sistema y del administrador</p></div>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead><tr><th>Fecha/Hora</th><th>Acción</th><th>Empresa</th><th>Realizado por</th></tr></thead>
+              <tbody id="admin-audit-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+      </main>
+    </div>
+    <!-- ═══ END ADMIN PANEL ═══ -->
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -1,0 +1,9 @@
+[
+  {
+    "id": "ADMIN-001",
+    "email": "admin@omnierp.cl",
+    "password": "Admin2025!",
+    "name": "Super Administrador",
+    "role": "superadmin"
+  }
+]
