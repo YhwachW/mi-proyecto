@@ -799,6 +799,7 @@ code          { font-family: 'Courier New', monospace; font-size: 0.78rem; color
   display: flex; height: 100vh; width: 100%;
   background: var(--bg); color: var(--text-primary); font-family: 'Inter', sans-serif;
 }
+.admin-wrapper.hidden { display: none !important; }
 .admin-sidebar {
   width: 240px; min-width: 240px; background: var(--bg-surface);
   border-right: 1px solid var(--border);

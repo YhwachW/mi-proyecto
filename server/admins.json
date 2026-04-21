@@ -2,7 +2,7 @@
   {
     "id": "ADMIN-001",
     "email": "admin@omnierp.cl",
-    "password": "Admin2025!",
+    "password": "$2b$10$K2RZm0nGiSfOj8HS5GkXGugk9n9eOwN7oIrqRYkRPRsJEzPKflxIC",
     "name": "Super Administrador",
     "role": "superadmin"
   }

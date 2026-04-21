@@ -7,11 +7,13 @@ import { $, formatCLP, formatNum } from './helpers';
 import { api } from './api';
 import {
   setCurrentModule, setCompanyId, setCompanyName, setFiscalContext,
+  setAuthToken,
   currentModule, companyNameContext,
 } from './state';
 import { renderDonut, renderTopProducts, destroyCharts } from './charts';
 import { renderRestockTable } from './restock';
 import { renderCalendar } from './calendar';
+import { renderAIInsights } from './aiInsights';
 import { startChangeWatcher, stopChangeWatcher } from './watcher';
 import { initProductsView, destroyProductsView } from './products';
 import { initSIIView } from './sii';
@@ -35,6 +37,7 @@ export const updateDashboard = async () => {
     renderDonut(data.demographics);
     renderTopProducts(data.topProducts);
     if (data.restockAlerts) renderRestockTable(data.restockAlerts);
+    renderAIInsights();
   } catch (err) {
     console.error('Dashboard update failed:', err);
   }
@@ -103,7 +106,8 @@ export const initLogin = () => {
 
       if (d.success) {
         errEl.style.display = 'none';
-        setCompanyId(d.token);
+        setCompanyId(d.companyId);
+        setAuthToken(d.token);
         setCompanyName(d.company);
         setCurrentModule(d.defaultModule);
         setFiscalContext(d.fiscal || null);
@@ -133,9 +137,9 @@ export const initLogin = () => {
         buildSidebar();
         await updateDashboard();
         await renderCalendar();
-        await initProductsView(d.token, updateDashboard);
-        initSIIView(d.token, d.fiscal || {});
-        initSubscriptionView(d.token, () => {
+        await initProductsView(d.companyId, updateDashboard);
+        initSIIView(d.companyId, d.fiscal || {});
+        initSubscriptionView(d.companyId, () => {
           clearSuspensionOverlay();
           updateDashboard();
         });
@@ -144,8 +148,12 @@ export const initLogin = () => {
         if (subStatus === 'grace') {
           setSuspensionOverlay(subStatus, graceDaysLeft, expiry, async () => {
             const r = await fetch('http://localhost:3001/api/subscription/pay', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ companyId: d.token })
+              method: 'POST', 
+              headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${d.token}`
+              },
+              body: JSON.stringify({ companyId: d.companyId })
             }).then(res => res.json());
             if (r.success) clearSuspensionOverlay();
           });
@@ -169,6 +177,7 @@ export const initLogin = () => {
     try {
       const d = await api.adminLogin(email, pass);
       if (d.success) {
+        setAuthToken(d.token);
         $('login-screen').classList.add('hidden');
         $('admin-panel').classList.remove('hidden');
         $('admin-name-display').innerText = d.adminName;

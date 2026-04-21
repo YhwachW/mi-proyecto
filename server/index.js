@@ -2,12 +2,48 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const rateLimit = require('express-rate-limit');
+const crypto = require('crypto');
+const helmet = require('helmet');
+const { getDayTypeInfo, buildProductModel, analyzeGlobalSeasonality } = require('./aiEngine');
+const { generateBusinessInsights, answerQuestion } = require('./aiAgent');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(64).toString('hex');
 
-app.use(cors());
+// Se oculta que es un servidor Express y se bloquean sniffers (Security Headers)
+app.use(helmet());
+
+// Se asegura origen específico, se bloquea el origin '*' (CORS Exploit Patch)
+app.use(cors({ origin: 'http://localhost:5173' }));
 app.use(express.json());
+
+// Middlewares de Seguridad
+const verifyToken = (req, res, next) => {
+  const token = req.headers['authorization']?.split(' ')[1];
+  if (!token) return res.status(403).json({ error: "Token JWT requerido faltante" });
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) return res.status(401).json({ error: "Token inválido o expirado" });
+    req.user = decoded;
+    next();
+  });
+};
+
+const verifyAdmin = (req, res, next) => {
+  verifyToken(req, res, () => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: "Acceso denegado. Privilegios de administrador requeridos." });
+    next();
+  });
+};
+
+const aiLimiter = rateLimit({
+  windowMs: 60 * 1000, 
+  max: 10,
+  message: { error: "Límite de consultas a IA por minuto superado para evitar fuerza bruta. Espera un momento." }
+});
 
 let usersDb = [];
 try {
@@ -75,6 +111,13 @@ checkSubscriptions();
 // Pre-built product catalog per companyId — avoids O(n) filter on every request
 const productsByCompany = {};
 
+let inventoryState = {};
+try {
+  inventoryState = JSON.parse(fs.readFileSync(path.join(__dirname, 'inventoryState.json'), 'utf8'));
+} catch (e) {
+  console.log('No prev inventory state found, it will be mapped at runtime');
+}
+
 try {
   const data = fs.readFileSync(path.join(__dirname, '../dataset.json'), 'utf8');
   dataset = JSON.parse(data);
@@ -82,7 +125,7 @@ try {
   let barcodeCounter = 79000001;
   dataset.forEach(entry => {
     if (!mockInventory[entry.productName]) {
-      mockInventory[entry.productName] = {
+      mockInventory[entry.productName] = inventoryState[entry.productName] || {
         name:      entry.productName,
         category:  entry.category,
         companyId: entry.companyId,
@@ -106,6 +149,36 @@ try {
 } catch (error) {
   console.error('No dataset found:', error);
 }
+
+// ─── TAREA PROGRAMADA: Tabla de Estadísticas Resumidas ─────────
+let dailyStatsSummary = [];
+
+function aggregateDailyStats() {
+  console.log('🔄 [CRON] Ejecutando tarea programada: Resumiendo ventas crudas a tabla diaria...');
+  const grouped = {};
+  dataset.forEach(d => {
+    const key = `${d.companyId}_${d.date}_${d.productName}`;
+    if (!grouped[key]) {
+      grouped[key] = {
+        companyId: d.companyId,
+        date: d.date,
+        productName: d.productName,
+        totalQuantity: 0,
+        totalRevenue: 0
+      };
+    }
+    grouped[key].totalQuantity += d.quantity;
+    grouped[key].totalRevenue += d.amount;
+  });
+  
+  dailyStatsSummary = Object.values(grouped);
+  console.log(`✅ [CRON] Dataset consolidado. De ${dataset.length} txs crudas a ${dailyStatsSummary.length} estadísticas diarias listas para la IA.`);
+}
+
+// Ejecutar al iniciar, y planificar tarea recurrente cada 1 hora
+aggregateDailyStats();
+setInterval(aggregateDailyStats, 60 * 60 * 1000);
+// ───────────────────────────────────────────────────────────────
 
 const holidays = [
   "01-01", "04-18", "05-01", "05-21", "06-21", "06-29", 
@@ -136,8 +209,8 @@ app.get('/api/last-update', (req, res) => {
 // connected clients detect the change and refresh their dashboards immediately
 app.post('/api/purchase', (req, res) => {
   const { companyId, productName, quantity } = req.body;
-  if (!companyId || !productName || !quantity) {
-    return res.status(400).json({ error: 'companyId, productName and quantity are required' });
+  if (!companyId || !productName || quantity === undefined || typeof quantity !== 'number' || quantity <= 0 || !Number.isInteger(quantity)) {
+    return res.status(400).json({ error: 'Datos inválidos. La cantidad debe ser un entero positivo numérico estricto mayor a 0.' });
   }
 
   const inv = mockInventory[productName];
@@ -157,6 +230,14 @@ app.post('/api/purchase', (req, res) => {
     unitPrice: 0, // unknown at purchase endpoint level
     quantity,
     totalPrice: 0
+  });
+
+  // Persistir de forma ASÍNCRONA (Non-blocking I/O) para evitar caída de Event Loop en horas pico
+  fs.writeFile(path.join(__dirname, 'inventoryState.json'), JSON.stringify(mockInventory, null, 2), err => {
+    if (err) console.error('Error asíncrono guardando inventory:', err);
+  });
+  fs.writeFile(path.join(__dirname, '../dataset.json'), JSON.stringify(dataset, null, 2), err => {
+    if (err) console.error('Error asíncrono guardando dataset:', err);
   });
 
   // Bump the change timestamp — clients polling /api/last-update will detect this
@@ -197,6 +278,13 @@ app.post('/api/stock-entry', (req, res) => {
 
   entries.forEach(entry => {
     const { barcode, productName, quantity } = entry;
+    
+    // Parche: Validación aritmética contra inyecciones negativas o Corrupción NaN
+    if (quantity === undefined || typeof quantity !== 'number' || quantity <= 0 || !Number.isInteger(quantity)) {
+      errors.push({ barcode, productName, error: 'Cantidad inválida. Debe ser numérico entero positivo estricto.' });
+      return;
+    }
+
     // Find product by barcode or name
     const inv = barcode
       ? Object.values(mockInventory).find(p => p.barcode === barcode && p.companyId === companyId)
@@ -216,33 +304,70 @@ app.post('/api/stock-entry', (req, res) => {
     console.log(`📦 Ingreso stock: +${quantity}x ${inv.name} → Stock: ${inv.stock}`);
   });
 
+  // Persistir estado de inventario Async para máxima disponibilidad HTTP
+  fs.writeFile(path.join(__dirname, 'inventoryState.json'), JSON.stringify(mockInventory, null, 2), err => {
+    if (err) console.error('Error asíncrono inventoryState:', err);
+  });
+
   lastUpdateTimestamp = Date.now();
   res.json({ success: true, results, errors, timestamp: lastUpdateTimestamp });
 });
 
 // AUTHENTICATION LOGIN ENDPOINT
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
-    const user = usersDb.find(u => u.email === email && u.password === password);
-    if(user) {
-        return res.json({
-          success: true,
-          token:         user.id,
-          company:       user.name,
-          defaultModule: user.category,
-          // Fiscal data for SII reports
-          fiscal: {
-            rut:        user.rut,
-            razonSocial: user.razonSocial,
-            giro:       user.giro,
-            direccion:  user.direccion,
-            ciudad:     user.ciudad,
-            region:     user.region
-          }
-        });
+    
+    // Mitigación de DoS: Validar que `password` es String genuino
+    if (!email || !password || typeof password !== 'string') {
+      return res.status(400).json({ success: false, error: 'Credenciales ausentes o mal formadas' });
     }
-    return res.status(401).json({ success: false, error: 'Credenciales inválidas' });
+
+    const user = usersDb.find(u => u.email === email);
+    if(!user) return res.status(401).json({ success: false, error: 'Credenciales inválidas' });
+    
+    const isMatch = await bcrypt.compare(password, user.password);
+    if(!isMatch) return res.status(401).json({ success: false, error: 'Credenciales inválidas' });
+
+    const token = jwt.sign({ id: user.id, role: 'user' }, JWT_SECRET, { expiresIn: '12h' });
+
+    return res.json({
+        success: true,
+        token:         token,          // Secure JWT token
+        companyId:     user.id,        // Company UUID for context
+        company:       user.name,
+        defaultModule: user.category,
+        fiscal: {
+          rut:        user.rut,
+          razonSocial: user.razonSocial,
+          giro:       user.giro,
+          direccion:  user.direccion,
+          ciudad:     user.ciudad,
+          region:     user.region
+        }
+    });
 });
+
+// ─── MIDDLEWARES GLOBALES DE SEGURIDAD ─────────────────────────
+app.use('/api/admin', (req, res, next) => {
+  if (req.path === '/login') return next();
+  verifyAdmin(req, res, next);
+});
+
+app.use('/api', (req, res, next) => {
+  if (req.path === '/login' || req.path.startsWith('/admin') || req.path === '/last-update') return next();
+
+  verifyToken(req, res, () => {
+    const targetCompanyId = req.method === 'GET' ? req.query.companyId : req.body.companyId;
+    // Si viene un companyId y no coincide con el del token, es un ataque IDOR
+    if (targetCompanyId && req.user.id !== targetCompanyId) {
+      console.warn(`Alerta de Seguridad (IDOR): Usuario ${req.user.id} intentó acceder a datos de ${targetCompanyId}`);
+      return res.status(403).json({ error: "Acceso denegado. Violación de IDOR detectada." });
+    }
+    next();
+  });
+});
+app.use('/api/ai-chat', aiLimiter);
+// ───────────────────────────────────────────────────────────────
 
 function computeCoreMetrics(filteredData) {
     const realTimeKpis = {
@@ -340,25 +465,25 @@ app.get('/api/forecast/:module', (req, res) => {
   if (!queryDate) return res.status(400).json({error: "Date parameter required"});
   if(!companyId) return res.status(403).json({error: "Secure CompanyId Context Missing"});
   
-  const specificDayType = getDayType(queryDate);
+  const { type: specificDayType, dayOfWeek } = getDayTypeInfo(queryDate);
   
   // Extract ONLY transactions corresponding to the authorized tenant
   let filteredData = dataset.filter(d => d.companyId === companyId);
+  const globalSeasonality = analyzeGlobalSeasonality(filteredData);
+  const dayMultiplier = globalSeasonality[dayOfWeek] || 1;
+
   const { realTimeKpis } = computeCoreMetrics(filteredData);
   const forecastedNeeds = [];
 
   Object.keys(realTimeKpis.topProducts).forEach(productName => {
-    const totalSold = realTimeKpis.topProducts[productName].quantity;
+    const productTx = filteredData.filter(d => d.productName === productName);
+    const model = buildProductModel(productTx);
     
-    // Average demand estimation 
-    // Uses the Chilean specific historical volume mapped directly to the requested month.
-    // We infer the raw volume historically recorded dynamically for realism.
-    const monthlyDemand = Math.ceil(totalSold / 12); 
-    const baseDaily = monthlyDemand / 30;
+    // Uses the calculated monthly average based on most recent months for better accuracy
+    const activeMonthlyDemand = model.monthlyAvg; 
+    const baseDaily = activeMonthlyDemand / 30;
     
-    let mult = 0.8; // weekday
-    if (specificDayType === 'holiday') mult = 3.5;
-    else if (specificDayType === 'weekend') mult = 1.8;
+    let mult = specificDayType === 'holiday' ? 3 : dayMultiplier;
     
     // Check local exact date override for Chilean dates to force huge demand
     const isSept18 = queryDate.includes('-09-18') || queryDate.includes('-09-19');
@@ -379,7 +504,8 @@ app.get('/api/forecast/:module', (req, res) => {
       currentStock,
       dailyDemand: singleDayActiveDemand,
       suggestedOrder,
-      status
+      status,
+      confidence: model.status === 'Sin datos' ? 'Baja' : (model.status === 'En Crecimiento' ? 'Alta' : 'Media')
     });
   });
 
@@ -390,6 +516,81 @@ app.get('/api/forecast/:module', (req, res) => {
     dayType: specificDayType,
     forecast: forecastedNeeds.slice(0, 50)
   });
+});
+
+// NEW AI INSIGHTS API
+app.get('/api/ai-insights', async (req, res) => {
+  const companyId = req.query.companyId;
+  if(!companyId) return res.status(403).json({error: "Secure CompanyId Context Missing"});
+
+  const user = usersDb.find(u => u.id === companyId);
+  const companyName = user ? user.name : "Empresa";
+
+  let filteredData = dataset.filter(d => d.companyId === companyId);
+  const { realTimeKpis } = computeCoreMetrics(filteredData);
+  
+  // Prepare a small summary of top products and their trend
+  const statsSummary = [];
+  Object.keys(realTimeKpis.topProducts).slice(0, 7).forEach(productName => {
+    const productTx = filteredData.filter(d => d.productName === productName);
+    const model = buildProductModel(productTx);
+    statsSummary.push({
+      producto: productName,
+      volumenMensualActual: model.monthlyAvg,
+      tendenciaCrecimiento: `${model.trendPct}%`,
+      estado: model.status
+    });
+  });
+
+  // EXTRAER LAS ESTADÍSTICAS RECIENTES (Últimos 14 días resumidos) PARA AHORRAR TOKENS
+  const companyDailyStats = dailyStatsSummary
+    .filter(d => d.companyId === companyId)
+    .slice(-30); // Acotamos a 30 días para enviar a la IA
+
+  // También se le envía el KPI base (10 líneas que ya calculamos de tendencia)
+  const finalAiPayload = {
+    tendenciasProducto: statsSummary,
+    ultimos30DiasAgrupados: companyDailyStats
+  };
+
+  const insights = await generateBusinessInsights(companyName, finalAiPayload);
+  res.json(insights);
+});
+
+// NEW AI CHAT API
+app.post('/api/ai-chat', async (req, res) => {
+  const { companyId, question } = req.body;
+  if(!companyId || !question) return res.status(400).json({error: "Secure CompanyId Context and question Missing"});
+
+  const user = usersDb.find(u => u.id === companyId);
+  const companyName = user ? user.name : "Empresa";
+
+  let filteredData = dataset.filter(d => d.companyId === companyId);
+  const { realTimeKpis } = computeCoreMetrics(filteredData);
+  
+  const statsSummary = [];
+  Object.keys(realTimeKpis.topProducts).slice(0, 10).forEach(productName => {
+    const productTx = filteredData.filter(d => d.productName === productName);
+    const model = buildProductModel(productTx);
+    statsSummary.push({
+      producto: productName,
+      volumenMensualActual: model.monthlyAvg,
+      tendenciaCrecimiento: `${model.trendPct}%`,
+      estado: model.status
+    });
+  });
+
+  const companyDailyStats = dailyStatsSummary
+    .filter(d => d.companyId === companyId)
+    .slice(-30);
+
+  const finalAiPayload = {
+    tendenciasProducto: statsSummary,
+    historicoRecienteAgrupado: companyDailyStats
+  };
+
+  const answer = await answerQuestion(companyName, finalAiPayload, question);
+  res.json({ answer });
 });
 
 app.get('/api/calendar/:year/:month', (req, res) => {
@@ -512,12 +713,24 @@ app.get('/api/sii/ventas', (req, res) => {
 // \u2500\u2500\u2500 ADMIN ENDPOINTS \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 // POST /api/admin/login
-app.post('/api/admin/login', (req, res) => {
+app.post('/api/admin/login', async (req, res) => {
   const { email, password } = req.body;
-  const admin = adminsDb.find(a => a.email === email && a.password === password);
+
+  // Mitigación de DoS para modulo Admin
+  if (!email || !password || typeof password !== 'string') {
+    return res.status(400).json({ success: false, error: 'Credenciales de administrador ausentes' });
+  }
+
+  const admin = adminsDb.find(a => a.email === email);
   if (!admin) return res.status(401).json({ success: false, error: 'Credenciales de administrador inválidas' });
+
+  const isMatch = await bcrypt.compare(password, admin.password);
+  if (!isMatch) return res.status(401).json({ success: false, error: 'Credenciales de administrador inválidas' });
+
+  const token = jwt.sign({ id: admin.id, role: 'admin' }, JWT_SECRET, { expiresIn: '12h' });
+
   addAudit('LOGIN-ADMIN', admin.name, admin.name);
-  res.json({ success: true, adminId: admin.id, adminName: admin.name, role: admin.role });
+  res.json({ success: true, adminId: admin.id, adminName: admin.name, role: admin.role, token });
 });
 
 // GET /api/admin/accounts — all companies with subscription data
@@ -655,10 +868,17 @@ app.post('/api/subscription/pay', (req, res) => {
 
   lastUpdateTimestamp = Date.now();
   addAudit('PAGO-RECIBIDO', `${user.name} — $${user.subscriptionPrice.toLocaleString('es-CL')}`, user.name);
-  console.log(`\ud83d\udcb0 Pago recibido: ${user.name} — nuevo vencimiento: ${newExpiry}`);
+  console.log(`💰 Pago recibido: ${user.name} — nuevo vencimiento: ${newExpiry}`);
   res.json({ success: true, newExpiry, status: 'active' });
 });
 
 app.listen(PORT, () => {
-  console.log(`\u2705 Servidor SaaS Analytics Multitenant en http://localhost:${PORT}`);
+  console.log(`✅ Servidor SaaS Analytics Multitenant en http://localhost:${PORT}`);
+  console.log('🤖 Motor de IA de Gemini conectado');
 });
+
+// force restart
+
+// final data reload check
+
+// actual final data reload

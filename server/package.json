@@ -1,24 +1,28 @@
 {
-    "name":  "server",
-    "version":  "1.0.0",
-    "description":  "",
-    "main":  "index.js",
-    "scripts":  {
-                    "test":  "echo no test",
-                    "dev":  "nodemon index.js",
-                    "start":  "node index.js"
-                },
-    "keywords":  [
-
-                 ],
-    "author":  "",
-    "license":  "ISC",
-    "type":  "commonjs",
-    "dependencies":  {
-                         "cors":  "^2.8.6",
-                         "express":  "^5.2.1"
-                     },
-    "devDependencies":  {
-                            "nodemon":  "^3.1.14"
-                        }
+    "name": "server",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo no test",
+        "dev": "nodemon index.js",
+        "start": "node index.js"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "type": "commonjs",
+    "dependencies": {
+        "@google/genai": "^1.50.1",
+        "bcryptjs": "^3.0.3",
+        "cors": "^2.8.6",
+        "dotenv": "^17.4.2",
+        "express": "^5.2.1",
+        "express-rate-limit": "^8.3.2",
+        "helmet": "^8.1.0",
+        "jsonwebtoken": "^9.0.3"
+    },
+    "devDependencies": {
+        "nodemon": "^3.1.14"
+    }
 }

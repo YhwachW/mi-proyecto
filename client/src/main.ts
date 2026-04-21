@@ -9,10 +9,12 @@ import { $                        } from './complementos/helpers';
 import { registerPurchase         } from './complementos/watcher';
 import { initLogin, initLogout    } from './complementos/auth';
 import { prevMonth, nextMonth, closeModal } from './complementos/calendar';
+import { initAIChat } from './complementos/aiInsights';
 
 // ─── INICIALIZAR MÓDULOS ──────────────────────────────────────
 initLogin();
 initLogout();
+initAIChat();
 
 // ─── EVENT LISTENERS GLOBALES ─────────────────────────────────
 $('prev-month')?.addEventListener('click', prevMonth);

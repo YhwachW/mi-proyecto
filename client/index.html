@@ -214,8 +214,41 @@
             </div>
           </section>
 
+          <!-- AI Assistant Insights -->
+          <section class="card ai-insights-section" style="background: linear-gradient(145deg, var(--gray-900), var(--gray-800)); border: 1px solid rgba(167, 139, 250, 0.2);">
+            <div class="table-header">
+              <div>
+                <h3 style="color: #a78bfa;"><i class="fas fa-robot"></i> Asistente Gerencial IA (Gemini)</h3>
+                <p class="chart-subtitle" style="color: var(--gray-300);">Análisis estratégico generado en tiempo real basado en tendencias Holt-Winters</p>
+              </div>
+              <span class="badge" style="background:rgba(109,40,217,0.3);color:#a78bfa"><i class="fas fa-bolt"></i> Local + LLM</span>
+            </div>
+            <div class="ai-insights-content" style="padding: 1rem 0; display: flex; gap: 1rem; flex-wrap: wrap;">
+              <div class="ai-insight-box" style="flex: 1; min-width: 200px; background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                <h4 style="margin-bottom: 0.5rem; color: var(--gray-400); font-size: 0.8rem; text-transform: uppercase;">Tendencia General</h4>
+                <p id="ai-tendencia" style="font-size: 0.95rem; line-height: 1.4;">Analizando métricas...</p>
+              </div>
+              <div class="ai-insight-box" style="flex: 1; min-width: 200px; background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                <h4 style="margin-bottom: 0.5rem; color: var(--gray-400); font-size: 0.8rem; text-transform: uppercase;">Producto Estrella</h4>
+                <p id="ai-estrella" style="font-size: 0.95rem; line-height: 1.4;">Procesando catálogo...</p>
+              </div>
+              <div class="ai-insight-box" style="flex: 1; min-width: 200px; background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                <h4 style="margin-bottom: 0.5rem; color: var(--gray-400); font-size: 0.8rem; text-transform: uppercase;">Recomendación Estratégica</h4>
+                <p id="ai-recomendacion" style="font-size: 0.95rem; line-height: 1.4;">Evaluando niveles de inventario...</p>
+              </div>
+            </div>
+            
+            <!-- AI Chat UI -->
+            <div style="padding: 0 1rem 1rem 1rem;">
+              <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                <input id="ai-chat-input" type="text" placeholder="Hazle una pregunta a tu Asistente IA sobre tu negocio..." style="flex: 1; padding: 0.75rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.3); color: white; outline: none; font-family: 'Inter', sans-serif;" />
+                <button id="btn-ai-chat" style="padding: 0.75rem 1.5rem; background: var(--purple); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s;"><i class="fas fa-paper-plane"></i></button>
+              </div>
+              <div id="ai-chat-response" style="margin-top: 1rem; padding: 1rem; background: rgba(167, 139, 250, 0.1); border-left: 3px solid var(--purple); border-radius: 4px; display: none; font-size: 0.95rem; line-height: 1.5; color: var(--gray-200);"></div>
+            </div>
+          </section>
+
           <!-- Restock Table -->
-          <section class="restock-section card">
             <div class="table-header">
               <div><h3><i class="fas fa-boxes-stacked"></i> Sugerencias de Reposición</h3><p class="chart-subtitle">Generado por IA en base al historial de 12 meses</p></div>
               <span class="badge badge-pulse"><i class="fas fa-brain"></i> IA Activa</span>

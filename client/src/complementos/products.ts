@@ -24,6 +24,9 @@ const findByName = (name: string) =>
 // Cache of pre-rendered <tr> elements so we never rebuild the DOM on search
 let cachedRows: HTMLTableRowElement[] = [];
 
+// Función para sanitizar Strings y prevenir XSS Stored (Cross Site Scripting)
+const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
 // ─── RENDER CATÁLOGO ─────────────────────────────────────────
 /** Builds all rows once using DocumentFragment (fast batch insert) */
 const buildCatalogRows = () => {
@@ -40,12 +43,12 @@ const buildCatalogRows = () => {
       <td>
         <div class="barcode-chip">
           <span class="barcode-icon">⎙</span>
-          <code>${p.barcode}</code>
+          <code>${escapeHtml(p.barcode)}</code>
         </div>
       </td>
-      <td><strong>${p.name}</strong></td>
-      <td><span class="category-tag">${p.category}</span></td>
-      <td class="stock-cell" id="stock-${p.barcode}">${p.stock} u.</td>
+      <td><strong>${escapeHtml(p.name)}</strong></td>
+      <td><span class="category-tag">${escapeHtml(p.category)}</span></td>
+      <td class="stock-cell" id="stock-${escapeHtml(p.barcode)}">${p.stock} u.</td>
       <td>
         <button class="btn-add-cart" data-barcode="${p.barcode}">
           <i class="fas fa-plus"></i> Agregar

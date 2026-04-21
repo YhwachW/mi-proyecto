@@ -3,25 +3,46 @@
 // Importa el estado de sesión desde state.ts para construir
 // las URLs con los parámetros de autenticación multi-inquilino.
 
-import { currentModule, companyIdContext } from './state';
+import { currentModule, companyIdContext, authTokenContext } from './state';
 
 const BASE = 'http://localhost:3001';
+
+const getHeaders = (withBody = false) => {
+  const h: HeadersInit = {
+    'Authorization': authTokenContext ? `Bearer ${authTokenContext}` : ''
+  };
+  if (withBody) h['Content-Type'] = 'application/json';
+  return h;
+};
 
 export const api = {
   /** Métricas mensuales del módulo activo para el tenant autenticado */
   metrics: () =>
-    fetch(`${BASE}/api/metrics/${encodeURIComponent(currentModule)}?companyId=${companyIdContext}`)
+    fetch(`${BASE}/api/metrics/${encodeURIComponent(currentModule)}?companyId=${companyIdContext}`, { headers: getHeaders() })
       .then(r => r.json()),
 
   /** Pronóstico de demanda para una fecha específica */
   forecast: (date: string) =>
-    fetch(`${BASE}/api/forecast/${encodeURIComponent(currentModule)}?companyId=${companyIdContext}&date=${date}`)
+    fetch(`${BASE}/api/forecast/${encodeURIComponent(currentModule)}?companyId=${companyIdContext}&date=${date}`, { headers: getHeaders() })
       .then(r => r.json()),
 
   /** Calendario mensual con scores de tráfico por día */
   calendar: (year: number, month: number) =>
-    fetch(`${BASE}/api/calendar/${year}/${month}?companyId=${companyIdContext}`)
+    fetch(`${BASE}/api/calendar/${year}/${month}?companyId=${companyIdContext}`, { headers: getHeaders() })
       .then(r => r.json()),
+
+  /** Insights gerenciales generados por IA (Gemini) */
+  getAIInsights: () => 
+    fetch(`${BASE}/api/ai-insights?companyId=${companyIdContext}`, { headers: getHeaders() })
+      .then(r => r.json()),
+
+  /** Chat directo con IA */
+  askAI: (question: string) =>
+    fetch(`${BASE}/api/ai-chat`, {
+      method: 'POST',
+      headers: getHeaders(true),
+      body: JSON.stringify({ companyId: companyIdContext, question })
+    }).then(r => r.json()),
 
   /** Autenticación de usuario corporativo */
   login: (email: string, password: string) =>
@@ -39,25 +60,25 @@ export const api = {
   purchase: (companyId: string, productName: string, quantity: number) =>
     fetch(`${BASE}/api/purchase`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getHeaders(true),
       body: JSON.stringify({ companyId, productName, quantity }),
     }).then(r => r.json()),
 
   /** Obtiene el catálogo de productos del tenant con barcodes y stock actual */
   products: (companyId: string) =>
-    fetch(`${BASE}/api/products?companyId=${companyId}`).then(r => r.json()),
+    fetch(`${BASE}/api/products?companyId=${companyId}`, { headers: getHeaders() }).then(r => r.json()),
 
   /** Ingresa stock (recepción de mercadería) — suma al inventario */
   stockEntry: (companyId: string, entries: { barcode: string; quantity: number }[]) =>
     fetch(`${BASE}/api/stock-entry`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getHeaders(true),
       body: JSON.stringify({ companyId, entries }),
     }).then(r => r.json()),
 
   /** Libro de Ventas SII — agrupado por día con IVA 19% */
   siiVentas: (companyId: string, year: string, month: string) =>
-    fetch(`${BASE}/api/sii/ventas?companyId=${companyId}&year=${year}&month=${month}`)
+    fetch(`${BASE}/api/sii/ventas?companyId=${companyId}&year=${year}&month=${month}`, { headers: getHeaders() })
       .then(r => r.json()),
 
   // ─── ADMIN ──────────────────────────────────────────────
@@ -69,5 +90,5 @@ export const api = {
 
   // ─── SUBSCRIPTION ───────────────────────────────────────
   subscription: (companyId: string) =>
-    fetch(`${BASE}/api/subscription?companyId=${companyId}`).then(r => r.json()),
+    fetch(`${BASE}/api/subscription?companyId=${companyId}`, { headers: getHeaders() }).then(r => r.json()),
 };

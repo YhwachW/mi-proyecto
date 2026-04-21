@@ -9,7 +9,7 @@
     "ciudad": "Santiago",
     "region": "Región Metropolitana",
     "email": "boti@admin.cl",
-    "password": "123",
+    "password": "$2b$10$nHbBSRXFuNOIPMNmUuYyBuHLzEw4LXlxQWejYPl43NGIqS0U0/bXS",
     "category": "Botillería",
     "subscriptionPlan": "Pro",
     "subscriptionPrice": 14990,
@@ -18,9 +18,21 @@
     "suspendedAt": null,
     "lastPayment": "2026-04-21",
     "paymentHistory": [
-      { "date": "2026-04-21", "amount": 14990, "period": "Abril 2026" },
-      { "date": "2026-03-21", "amount": 14990, "period": "Marzo 2026" },
-      { "date": "2026-02-21", "amount": 14990, "period": "Febrero 2026" }
+      {
+        "date": "2026-04-21",
+        "amount": 14990,
+        "period": "Abril 2026"
+      },
+      {
+        "date": "2026-03-21",
+        "amount": 14990,
+        "period": "Marzo 2026"
+      },
+      {
+        "date": "2026-02-21",
+        "amount": 14990,
+        "period": "Febrero 2026"
+      }
     ]
   },
   {
@@ -33,7 +45,7 @@
     "ciudad": "Las Condes",
     "region": "Región Metropolitana",
     "email": "supermercado@admin.cl",
-    "password": "123",
+    "password": "$2b$10$nHbBSRXFuNOIPMNmUuYyBuHLzEw4LXlxQWejYPl43NGIqS0U0/bXS",
     "category": "Supermercado",
     "subscriptionPlan": "Pro",
     "subscriptionPrice": 14990,
@@ -42,9 +54,21 @@
     "suspendedAt": "2026-04-06",
     "lastPayment": "2026-03-06",
     "paymentHistory": [
-      { "date": "2026-03-06", "amount": 14990, "period": "Marzo 2026" },
-      { "date": "2026-02-06", "amount": 14990, "period": "Febrero 2026" },
-      { "date": "2026-01-06", "amount": 14990, "period": "Enero 2026" }
+      {
+        "date": "2026-03-06",
+        "amount": 14990,
+        "period": "Marzo 2026"
+      },
+      {
+        "date": "2026-02-06",
+        "amount": 14990,
+        "period": "Febrero 2026"
+      },
+      {
+        "date": "2026-01-06",
+        "amount": 14990,
+        "period": "Enero 2026"
+      }
     ]
   },
   {
@@ -57,7 +81,7 @@
     "ciudad": "Santiago Centro",
     "region": "Región Metropolitana",
     "email": "restaurante@admin.cl",
-    "password": "123",
+    "password": "$2b$10$nHbBSRXFuNOIPMNmUuYyBuHLzEw4LXlxQWejYPl43NGIqS0U0/bXS",
     "category": "Platos de Comida",
     "subscriptionPlan": "Pro",
     "subscriptionPrice": 14990,
@@ -66,9 +90,21 @@
     "suspendedAt": null,
     "lastPayment": "2026-03-26",
     "paymentHistory": [
-      { "date": "2026-03-26", "amount": 14990, "period": "Marzo 2026" },
-      { "date": "2026-02-26", "amount": 14990, "period": "Febrero 2026" },
-      { "date": "2026-01-26", "amount": 14990, "period": "Enero 2026" }
+      {
+        "date": "2026-03-26",
+        "amount": 14990,
+        "period": "Marzo 2026"
+      },
+      {
+        "date": "2026-02-26",
+        "amount": 14990,
+        "period": "Febrero 2026"
+      },
+      {
+        "date": "2026-01-26",
+        "amount": 14990,
+        "period": "Enero 2026"
+      }
     ]
   }
 ]
